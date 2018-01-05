@@ -21,6 +21,7 @@ import time
 import argparse
 import json
 import uuid
+import Adafruit_DHT
 
 from AWSIoTPythonSDK.MQTTLib import AWSIoTMQTTClient
 from datetime import datetime
@@ -35,6 +36,31 @@ def customCallback(client, userdata, message):
     print(message.topic)
     print("--------------\n\n")
 
+
+def read_sensor():
+    logger.info('Reading sensor')
+    sensor = Adafruit_DHT.DHT22
+    logger.info('Sensor created')
+    # Example using a Raspberry Pi with DHT sensor
+    # connected to GPIO23.
+    pin = 23
+
+    # Try to grab a sensor reading.  Use the read_retry method which will retry up
+    # to 15 times to get a sensor reading (waiting 2 seconds between each retry).
+    humidity, temperature = Adafruit_DHT.read_retry(sensor, pin)
+    logger.info('Read sensor')
+
+    # Note that sometimes you won't get a reading and
+    # the results will be null (because Linux can't
+    # guarantee the timing of calls to read the sensor).
+    # If this happens try again!
+    if humidity is not None and temperature is not None:
+        logger.info('Read sensor again')
+        logger.info('Temp={0:0.1f}*C  Humidity={1:0.1f}%'.format(temperature, humidity))
+    else:
+        logger.info('Failed to get reading. Try again!')
+
+    return (humidity, temperature)
 
 # Read in command-line parameters
 parser = argparse.ArgumentParser()
@@ -74,8 +100,8 @@ if not args.useWebsocket and (not args.certificatePath or not args.privateKeyPat
     exit(2)
 
 # Configure logging
-logger = logging.getLogger("AWSIoTPythonSDK.core")
-logger.setLevel(logging.DEBUG)
+logger = logging.getLogger("rpi-measure")
+logger.setLevel(logging.INFO)
 streamHandler = logging.StreamHandler()
 formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 streamHandler.setFormatter(formatter)
@@ -101,22 +127,15 @@ myAWSIoTMQTTClient.configureMQTTOperationTimeout(5)  # 5 sec
 
 # Connect and subscribe to AWS IoT
 myAWSIoTMQTTClient.connect()
-if args.mode == 'both' or args.mode == 'subscribe':
-    myAWSIoTMQTTClient.subscribe(topic, 1, customCallback)
+myAWSIoTMQTTClient.subscribe(topic, 1, customCallback)
 time.sleep(2)
 
-# Publish to the same topic in a loop forever
-loopCount = 0
-while True:
-    if args.mode == 'both' or args.mode == 'publish':
-        message = {}
-        message['timestamp'] = str(datetime.now())
-        message['msg_id'] = str(uuid.uuid4())
-        message['temperature'] = loopCount
-        message['humidity'] = '{0:0.1f}'.format(loopCount / 11)
-        messageJson = json.dumps(message)
-        myAWSIoTMQTTClient.publish(topic, messageJson, 1)
-        if args.mode == 'publish':
-            print('Published topic %s: %s\n' % (topic, messageJson))
-        loopCount += 1
-    time.sleep(1)
+humidity, temperature = read_sensor()
+message = {}
+message['timestamp'] = str(datetime.now())
+message['msg_id'] = str(uuid.uuid4())
+message['temperature'] = temperature
+message['humidity'] = humidity
+messageJson = json.dumps(message)
+myAWSIoTMQTTClient.publish(topic, messageJson, 1)
+logger.debug('Published topic %s: %s\n' % (topic, messageJson))
