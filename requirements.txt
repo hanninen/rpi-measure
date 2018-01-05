@@ -1,0 +1,2 @@
+AWSIoTPythonSDK
+# Adafruit_Python_DHT
