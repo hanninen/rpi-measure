@@ -1,0 +1,9 @@
+[connection]
+host = hostname.for.aws-iot.amazonaws.com
+clientId = iot-client-id
+topic = topic/identifier
+
+[cert]
+rootCAPath = /full/path/to/root-ca
+certificatePath = /full/path/to/certificate
+privateKeyPath = /full/path/to/private-key

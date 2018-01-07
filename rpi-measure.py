@@ -16,126 +16,106 @@
  */
  '''
 
-import logging
 import time
-import argparse
 import json
 import uuid
+import sys
+import logging
+import ConfigParser
 import Adafruit_DHT
 
 from AWSIoTPythonSDK.MQTTLib import AWSIoTMQTTClient
 from datetime import datetime
-
-AllowedActions = ['both', 'publish', 'subscribe']
-
-# Custom MQTT message callback
-def customCallback(client, userdata, message):
-    print("Received a new message: ")
-    print(message.payload)
-    print("from topic: ")
-    print(message.topic)
-    print("--------------\n\n")
+from daemonize import Daemonize
 
 
-def read_sensor():
-    logger.info('Reading sensor')
-    sensor = Adafruit_DHT.DHT22
-    logger.info('Sensor created')
-    # Example using a Raspberry Pi with DHT sensor
-    # connected to GPIO23.
-    pin = 23
+class RPiMeasure():
+        def configure(self):
+            config = ConfigParser.ConfigParser()
 
-    # Try to grab a sensor reading.  Use the read_retry method which will retry up
-    # to 15 times to get a sensor reading (waiting 2 seconds between each retry).
-    humidity, temperature = Adafruit_DHT.read_retry(sensor, pin)
-    logger.info('Read sensor')
+            try:
+                config.readfp(open('/Users/ahannine/src/personal/rpi-measurement/measure.conf'))
+            except:
+                print("Unable to read measure.conf")
+                sys.exit(3)
 
-    # Note that sometimes you won't get a reading and
-    # the results will be null (because Linux can't
-    # guarantee the timing of calls to read the sensor).
-    # If this happens try again!
-    if humidity is not None and temperature is not None:
-        logger.info('Read sensor again')
-        logger.info('Temp={0:0.1f}*C  Humidity={1:0.1f}%'.format(temperature, humidity))
-    else:
-        logger.info('Failed to get reading. Try again!')
+            self.host = config.get("connection", "host")
+            self.clientId = config.get("connection", "clientId")
+            self.topic = config.get("connection", "topic")
+            self.rootCAPath = config.get("cert", "rootCAPath")
+            self.certificatePath = config.get("cert", "certificatePath")
+            self.privateKeyPath = config.get("cert", "privateKeyPath")
 
-    return (humidity, temperature)
+        def create_mqtt_client(self):
+            # Init AWSIoTMQTTClient
+            self.myAWSIoTMQTTClient = AWSIoTMQTTClient(self.clientId)
+            self.myAWSIoTMQTTClient.configureEndpoint(self.host, 8883)
+            self.myAWSIoTMQTTClient.configureCredentials(self.rootCAPath, self.privateKeyPath, self.certificatePath)
 
-# Read in command-line parameters
-parser = argparse.ArgumentParser()
-parser.add_argument("-e", "--endpoint", action="store", required=True, dest="host", help="Your AWS IoT custom endpoint")
-parser.add_argument("-r", "--rootCA", action="store", required=True, dest="rootCAPath", help="Root CA file path")
-parser.add_argument("-c", "--cert", action="store", dest="certificatePath", help="Certificate file path")
-parser.add_argument("-k", "--key", action="store", dest="privateKeyPath", help="Private key file path")
-parser.add_argument("-w", "--websocket", action="store_true", dest="useWebsocket", default=False,
-                    help="Use MQTT over WebSocket")
-parser.add_argument("-id", "--clientId", action="store", dest="clientId", default="basicPubSub",
-                    help="Targeted client id")
-parser.add_argument("-t", "--topic", action="store", dest="topic", default="sdk/test/Python", help="Targeted topic")
-parser.add_argument("-m", "--mode", action="store", dest="mode", default="both",
-                    help="Operation modes: %s"%str(AllowedActions))
-parser.add_argument("-M", "--message", action="store", dest="message", default="Hello World!",
-                    help="Message to publish")
+            # AWSIoTMQTTClient connection configuration
+            self.myAWSIoTMQTTClient.configureAutoReconnectBackoffTime(1, 32, 20)
+            self.myAWSIoTMQTTClient.configureOfflinePublishQueueing(-1)  # Infinite offline Publish queueing
+            self.myAWSIoTMQTTClient.configureDrainingFrequency(2)  # Draining: 2 Hz
+            self.myAWSIoTMQTTClient.configureConnectDisconnectTimeout(10)  # 10 sec
+            self.myAWSIoTMQTTClient.configureMQTTOperationTimeout(5)  # 5 sec
 
-args = parser.parse_args()
-host = args.host
-rootCAPath = args.rootCAPath
-certificatePath = args.certificatePath
-privateKeyPath = args.privateKeyPath
-useWebsocket = args.useWebsocket
-clientId = args.clientId
-topic = args.topic
+            # Connect and subscribe to AWS IoT
+            self.myAWSIoTMQTTClient.connect()
+            time.sleep(2)
 
-if args.mode not in AllowedActions:
-    parser.error("Unknown --mode option %s. Must be one of %s" % (args.mode, str(AllowedActions)))
-    exit(2)
+        def run(self):
+                self.configure()
+                self.create_mqtt_client()
+                while True:
+                    self.send_measure()
+                    time.sleep(10)
 
-if args.useWebsocket and args.certificatePath and args.privateKeyPath:
-    parser.error("X.509 cert authentication and WebSocket are mutual exclusive. Please pick one.")
-    exit(2)
+        def read_sensor(self):
+            logger.info('Reading sensor')
+            sensor = Adafruit_DHT.DHT22
+            logger.info('Sensor created')
+            # Example using a Raspberry Pi with DHT sensor
+            # connected to GPIO23.
+            pin = 23
 
-if not args.useWebsocket and (not args.certificatePath or not args.privateKeyPath):
-    parser.error("Missing credentials for authentication.")
-    exit(2)
+            # Try to grab a sensor reading.  Use the read_retry method which will retry up
+            # to 15 times to get a sensor reading (waiting 2 seconds between each retry).
+            humidity, temperature = Adafruit_DHT.read_retry(sensor, pin)
+            logger.info('Read sensor')
 
-# Configure logging
-logger = logging.getLogger("rpi-measure")
-logger.setLevel(logging.INFO)
-streamHandler = logging.StreamHandler()
-formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-streamHandler.setFormatter(formatter)
-logger.addHandler(streamHandler)
+            # Note that sometimes you won't get a reading and
+            # the results will be null (because Linux can't
+            # guarantee the timing of calls to read the sensor).
+            # If this happens try again!
+            if humidity is not None and temperature is not None:
+                logger.info('Read sensor again')
+                logger.info('Temp={0:0.1f}*C  Humidity={1:0.1f}%'.format(temperature, humidity))
+            else:
+                logger.info('Failed to get reading. Try again!')
 
-# Init AWSIoTMQTTClient
-myAWSIoTMQTTClient = None
-if useWebsocket:
-    myAWSIoTMQTTClient = AWSIoTMQTTClient(clientId, useWebsocket=True)
-    myAWSIoTMQTTClient.configureEndpoint(host, 443)
-    myAWSIoTMQTTClient.configureCredentials(rootCAPath)
-else:
-    myAWSIoTMQTTClient = AWSIoTMQTTClient(clientId)
-    myAWSIoTMQTTClient.configureEndpoint(host, 8883)
-    myAWSIoTMQTTClient.configureCredentials(rootCAPath, privateKeyPath, certificatePath)
+            return (humidity, temperature)
 
-# AWSIoTMQTTClient connection configuration
-myAWSIoTMQTTClient.configureAutoReconnectBackoffTime(1, 32, 20)
-myAWSIoTMQTTClient.configureOfflinePublishQueueing(-1)  # Infinite offline Publish queueing
-myAWSIoTMQTTClient.configureDrainingFrequency(2)  # Draining: 2 Hz
-myAWSIoTMQTTClient.configureConnectDisconnectTimeout(10)  # 10 sec
-myAWSIoTMQTTClient.configureMQTTOperationTimeout(5)  # 5 sec
+        def send_measure(self):
+            humidity, temperature = self.read_sensor()
+            message = {}
+            message['timestamp'] = str(datetime.now())
+            message['msg_id'] = str(uuid.uuid4())
+            message['temperature'] = temperature
+            message['humidity'] = humidity
+            messageJson = json.dumps(message)
+            self.myAWSIoTMQTTClient.publish(self.topic, messageJson, 1)
+            logger.debug('Published topic %s: %s\n' % (self.topic, messageJson))
 
-# Connect and subscribe to AWS IoT
-myAWSIoTMQTTClient.connect()
-myAWSIoTMQTTClient.subscribe(topic, 1, customCallback)
-time.sleep(2)
 
-humidity, temperature = read_sensor()
-message = {}
-message['timestamp'] = str(datetime.now())
-message['msg_id'] = str(uuid.uuid4())
-message['temperature'] = temperature
-message['humidity'] = humidity
-messageJson = json.dumps(message)
-myAWSIoTMQTTClient.publish(topic, messageJson, 1)
-logger.debug('Published topic %s: %s\n' % (topic, messageJson))
+pid = "/tmp/test.pid"
+logger = logging.getLogger(__name__)
+logger.setLevel(logging.DEBUG)
+logger.propagate = False
+fh = logging.FileHandler("/tmp/test.log", "w")
+fh.setLevel(logging.DEBUG)
+logger.addHandler(fh)
+keep_fds = [fh.stream.fileno()]
+
+rpi = RPiMeasure()
+daemon = Daemonize(app="rpi-measure", pid=pid, action=rpi.run, logger=logger, keep_fds=keep_fds)
+daemon.start()
