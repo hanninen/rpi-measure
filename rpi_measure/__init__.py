@@ -26,10 +26,14 @@ import Adafruit_DHT
 
 from AWSIoTPythonSDK.MQTTLib import AWSIoTMQTTClient
 from datetime import datetime
-from daemonize import Daemonize
 
 
 class RPiMeasure():
+        def __init__(self):
+            self.logger = logging.getLogger(__name__)
+            self.logger.setLevel(logging.DEBUG)
+            self.logger.propagate = False
+
         def configure(self):
             config = ConfigParser.ConfigParser()
 
@@ -48,32 +52,42 @@ class RPiMeasure():
 
         def create_mqtt_client(self):
             # Init AWSIoTMQTTClient
-            self.myAWSIoTMQTTClient = AWSIoTMQTTClient(self.clientId)
-            self.myAWSIoTMQTTClient.configureEndpoint(self.host, 8883)
-            self.myAWSIoTMQTTClient.configureCredentials(self.rootCAPath, self.privateKeyPath, self.certificatePath)
+            self.mqtt_client = AWSIoTMQTTClient(self.clientId)
+            self.mqtt_client.configureEndpoint(self.host, 8883)
+            self.mqtt_client.configureCredentials(self.rootCAPath, self.privateKeyPath, self.certificatePath)
 
             # AWSIoTMQTTClient connection configuration
-            self.myAWSIoTMQTTClient.configureAutoReconnectBackoffTime(1, 32, 20)
-            self.myAWSIoTMQTTClient.configureOfflinePublishQueueing(-1)  # Infinite offline Publish queueing
-            self.myAWSIoTMQTTClient.configureDrainingFrequency(2)  # Draining: 2 Hz
-            self.myAWSIoTMQTTClient.configureConnectDisconnectTimeout(10)  # 10 sec
-            self.myAWSIoTMQTTClient.configureMQTTOperationTimeout(5)  # 5 sec
+            self.mqtt_client.configureAutoReconnectBackoffTime(1, 32, 20)
+            # Infinite offline Publish queueing
+            self.mqtt_client.configureOfflinePublishQueueing(-1)
+            # Draining: 2 Hz
+            self.mqtt_client.configureDrainingFrequency(2)
+            self.mqtt_client.configureConnectDisconnectTimeout(10)
+            self.mqtt_client.configureMQTTOperationTimeout(5)
 
+        def connect_mqtt_client(self):
             # Connect and subscribe to AWS IoT
-            self.myAWSIoTMQTTClient.connect()
+            self.logger.debug('Connecting to %s/%s MQTT queue' % (self.host, self.topic))
+            self.mqtt_client.connect()
+            self.logger.debug('Connected')
             time.sleep(2)
+
+        def disconnect_mqtt_client(self):
+            self.logger.debug('Disconnecting from %s/%s MQTT queue' % (self.host, self.topic))
+            self.mqtt_client.disconnect()
+            self.logger.debug('Disconnected')
 
         def run(self):
                 self.configure()
                 self.create_mqtt_client()
                 while True:
                     self.send_measure()
-                    time.sleep(10)
+                    time.sleep(58)
 
         def read_sensor(self):
-            logger.info('Reading sensor')
+            self.logger.info('Reading sensor')
             sensor = Adafruit_DHT.DHT22
-            logger.info('Sensor created')
+            self.logger.info('Sensor created')
             # Example using a Raspberry Pi with DHT sensor
             # connected to GPIO23.
             pin = 23
@@ -81,17 +95,17 @@ class RPiMeasure():
             # Try to grab a sensor reading.  Use the read_retry method which will retry up
             # to 15 times to get a sensor reading (waiting 2 seconds between each retry).
             humidity, temperature = Adafruit_DHT.read_retry(sensor, pin)
-            logger.info('Read sensor')
+            self.logger.info('Read sensor')
 
             # Note that sometimes you won't get a reading and
             # the results will be null (because Linux can't
             # guarantee the timing of calls to read the sensor).
             # If this happens try again!
             if humidity is not None and temperature is not None:
-                logger.info('Read sensor again')
-                logger.info('Temp={0:0.1f}*C  Humidity={1:0.1f}%'.format(temperature, humidity))
+                self.logger.info('Read sensor again')
+                self.logger.info('Temp={0:0.1f}*C  Humidity={1:0.1f}%'.format(temperature, humidity))
             else:
-                logger.info('Failed to get reading. Try again!')
+                self.logger.info('Failed to get reading. Try again!')
 
             return (humidity, temperature)
 
@@ -103,19 +117,7 @@ class RPiMeasure():
             message['temperature'] = temperature
             message['humidity'] = humidity
             messageJson = json.dumps(message)
-            self.myAWSIoTMQTTClient.publish(self.topic, messageJson, 1)
-            logger.debug('Published topic %s: %s\n' % (self.topic, messageJson))
-
-
-pid = "/tmp/test.pid"
-logger = logging.getLogger(__name__)
-logger.setLevel(logging.DEBUG)
-logger.propagate = False
-fh = logging.FileHandler("/tmp/test.log", "w")
-fh.setLevel(logging.DEBUG)
-logger.addHandler(fh)
-keep_fds = [fh.stream.fileno()]
-
-rpi = RPiMeasure()
-daemon = Daemonize(app="rpi-measure", pid=pid, action=rpi.run, logger=logger, keep_fds=keep_fds)
-daemon.start()
+            self.connect_mqtt_client()
+            self.mqtt_client.publish(self.topic, messageJson, 1)
+            self.logger.debug('Published topic %s: %s\n' % (self.topic, messageJson))
+            self.disconnect_mqtt_client()

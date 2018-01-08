@@ -1,0 +1,11 @@
+#!/usr/bin/env python
+
+import logging
+from rpi_measure import RPiMeasure
+
+logger = logging.getLogger('rpi_measure')
+ch = logging.StreamHandler()
+ch.setLevel(logging.DEBUG)
+logger.addHandler(ch)
+rpi = RPiMeasure()
+rpi.run()

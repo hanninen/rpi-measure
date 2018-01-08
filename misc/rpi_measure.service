@@ -1,0 +1,13 @@
+[Unit]
+Description=Temperature and humidity measurement
+After=network.target
+
+[Service]
+Type=simple
+User=root
+WorkingDirectory=/
+ExecStart=/usr/local/bin/rpi-measure
+Restart=on-abort
+
+[Install]
+WantedBy=multi-user.target
