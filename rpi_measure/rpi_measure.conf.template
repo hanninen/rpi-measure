@@ -4,6 +4,6 @@ clientId = iot-client-id
 topic = topic/identifier
 
 [cert]
-rootCAPath = /full/path/to/root-ca
-certificatePath = /full/path/to/certificate
-privateKeyPath = /full/path/to/private-key
+rootCAPath = /etc/rpi_measure/cert/root-ca.crt
+certificatePath = /etc/rpi_measure/cert/certificate.crt
+privateKeyPath = /etc/rpi_measure/cert/private.key

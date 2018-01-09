@@ -2,3 +2,5 @@
 
 ## Dependencies
 * libpython-dev
+* pip
+
