@@ -18,7 +18,6 @@
 
 import time
 import json
-import uuid
 import sys
 import logging
 import ConfigParser
@@ -112,8 +111,8 @@ class RPiMeasure():
         def send_measure(self):
             humidity, temperature = self.read_sensor()
             message = {}
-            message['timestamp'] = str(datetime.now())
-            message['msg_id'] = str(uuid.uuid4())
+            message['msg_timestamp'] = str(datetime.utcnow())
+            message['device_id'] = self.clientId
             message['temperature'] = temperature
             message['humidity'] = humidity
             messageJson = json.dumps(message)
