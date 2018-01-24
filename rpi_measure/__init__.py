@@ -37,9 +37,9 @@ class RPiMeasure():
             config = ConfigParser.ConfigParser()
 
             try:
-                config.readfp(open('/Users/ahannine/src/personal/rpi-measurement/measure.conf'))
+                config.readfp(open('/etc/rpi_measure/rpi_measure.conf'))
             except:
-                print("Unable to read measure.conf")
+                print("Unable to read /etc/rpi_measure/rpi_measure.conf")
                 sys.exit(3)
 
             self.host = config.get("connection", "host")
@@ -89,7 +89,7 @@ class RPiMeasure():
             self.logger.info('Sensor created')
             # Example using a Raspberry Pi with DHT sensor
             # connected to GPIO23.
-            pin = 23
+            pin = 17
 
             # Try to grab a sensor reading.  Use the read_retry method which will retry up
             # to 15 times to get a sensor reading (waiting 2 seconds between each retry).
