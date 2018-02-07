@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 from setuptools import setup
 
 
@@ -10,7 +11,7 @@ setup(name='rpi_measure',
       license='Apache-2.0',
       install_requires=[
         'AWSIoTPythonSDK',
-        'Adafruit_Python_DHT'
+        'pigpio'
       ],
       include_package_data=True,
       packages=['rpi_measure'],

@@ -33,6 +33,8 @@ class RPiMeasure(Sensor):
             self.logger = logging.getLogger(__name__)
             self.logger.setLevel(logging.DEBUG)
             self.logger.propagate = False
+            self.configure()
+            self.create_mqtt_client()
 
         def configure(self):
             config = ConfigParser.ConfigParser()
@@ -49,7 +51,7 @@ class RPiMeasure(Sensor):
             self.rootCAPath = config.get("cert", "rootCAPath")
             self.certificatePath = config.get("cert", "certificatePath")
             self.privateKeyPath = config.get("cert", "privateKeyPath")
-            self.gpio = config.get('raspberry', 'gpio')
+            self.gpio = int(config.get('raspberry', 'gpio'))
             self.pi = pigpio.pi()
             super(RPiMeasure, self).__init__(self.pi, self.gpio)
 
@@ -81,8 +83,6 @@ class RPiMeasure(Sensor):
             self.logger.debug('Disconnected')
 
         def run(self):
-                self.configure()
-                self.create_mqtt_client()
                 while True:
                     self.send_measure()
                     time.sleep(59)
