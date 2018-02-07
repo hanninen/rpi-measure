@@ -7,3 +7,6 @@ topic = topic/identifier
 rootCAPath = /etc/rpi_measure/cert/root-ca.crt
 certificatePath = /etc/rpi_measure/cert/certificate.crt
 privateKeyPath = /etc/rpi_measure/cert/private.key
+
+[raspberry]
+gpio = 17
