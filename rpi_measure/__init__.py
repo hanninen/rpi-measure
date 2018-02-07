@@ -21,13 +21,14 @@ import json
 import sys
 import logging
 import ConfigParser
-import Adafruit_DHT
+import pigpio
 
+from dht22 import Sensor
 from AWSIoTPythonSDK.MQTTLib import AWSIoTMQTTClient
 from datetime import datetime
 
 
-class RPiMeasure():
+class RPiMeasure(Sensor):
         def __init__(self):
             self.logger = logging.getLogger(__name__)
             self.logger.setLevel(logging.DEBUG)
@@ -48,6 +49,9 @@ class RPiMeasure():
             self.rootCAPath = config.get("cert", "rootCAPath")
             self.certificatePath = config.get("cert", "certificatePath")
             self.privateKeyPath = config.get("cert", "privateKeyPath")
+            self.gpio = config.get('raspberry', 'gpio')
+            self.pi = pigpio.pi()
+            super(RPiMeasure, self).__init__(self.pi, self.gpio)
 
         def create_mqtt_client(self):
             # Init AWSIoTMQTTClient
@@ -81,30 +85,16 @@ class RPiMeasure():
                 self.create_mqtt_client()
                 while True:
                     self.send_measure()
-                    time.sleep(58)
+                    time.sleep(59)
 
         def read_sensor(self):
-            self.logger.info('Reading sensor')
-            sensor = Adafruit_DHT.DHT22
-            self.logger.info('Sensor created')
-            # Example using a Raspberry Pi with DHT sensor
-            # connected to GPIO23.
-            pin = 17
-
-            # Try to grab a sensor reading.  Use the read_retry method which will retry up
-            # to 15 times to get a sensor reading (waiting 2 seconds between each retry).
-            humidity, temperature = Adafruit_DHT.read_retry(sensor, pin)
-            self.logger.info('Read sensor')
-
-            # Note that sometimes you won't get a reading and
-            # the results will be null (because Linux can't
-            # guarantee the timing of calls to read the sensor).
-            # If this happens try again!
-            if humidity is not None and temperature is not None:
-                self.logger.info('Read sensor again')
-                self.logger.info('Temp={0:0.1f}*C  Humidity={1:0.1f}%'.format(temperature, humidity))
-            else:
-                self.logger.info('Failed to get reading. Try again!')
+            self.logger.debug('Reading sensor')
+            self.trigger()
+            time.sleep(0.2)
+            humidity = self.humidity()
+            temperature = self.temperature()
+            self.logger.debug('Read sensor')
+            self.cancel()
 
             return (humidity, temperature)
 
