@@ -87,6 +87,8 @@ class RPiMeasure(Sensor):
                     self.send_measure()
                     time.sleep(59)
 
+                self.cancel()
+
         def read_sensor(self):
             self.logger.debug('Reading sensor')
             self.trigger()
@@ -94,7 +96,6 @@ class RPiMeasure(Sensor):
             humidity = self.humidity()
             temperature = self.temperature()
             self.logger.debug('Read sensor')
-            self.cancel()
 
             return (humidity, temperature)
 
