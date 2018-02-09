@@ -97,6 +97,10 @@ class RPiMeasure(Sensor):
             temperature = self.temperature()
             self.logger.debug('Read sensor')
 
+            # Set values to None, if it is -999
+            humidity = None if humidity == -999 else humidity
+            temperature = None if temperature == -999 else temperature
+
             return (humidity, temperature)
 
         def send_measure(self):
