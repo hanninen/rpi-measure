@@ -1,0 +1,14 @@
+[Unit]
+Description=PiGPIO daemon
+After=network.target
+
+[Service]
+Type=forking
+PIDFile=/var/run/pigpio.pid
+User=root
+WorkingDirectory=/
+ExecStart=/usr/bin/pigpiod
+Restart=on-abort
+
+[Install]
+WantedBy=multi-user.target

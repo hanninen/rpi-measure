@@ -8,6 +8,7 @@ deps:
 
 systemd:
 	sudo cp misc/rpi_measure.service /etc/systemd/system/
+	sudo cp misc/pigpiod.service /etc/systemd/system/
 
 config:
 ifeq ("$(wildcard /etc/rpi_measure/rpi_measure.conf)","")
