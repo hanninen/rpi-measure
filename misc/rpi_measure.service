@@ -1,6 +1,7 @@
 [Unit]
 Description=Temperature and humidity measurement
-After=network.target
+Requires=pigpiod.service
+After=pigpiod.service
 
 [Service]
 Type=simple
