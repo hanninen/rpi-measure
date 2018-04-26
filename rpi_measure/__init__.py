@@ -115,8 +115,7 @@ class RPiMeasure(Sensor):
             message['temperature'] = temperature
             message['humidity'] = humidity
             # expire parameter for DynamoDB TTL
-            message['expire'] = int(time.mktime(
-                datetime.datetime.utcnow().timetuple()))
+            message['expire'] = int(time.mktime(datetime.utcnow().timetuple()))
             messageJson = json.dumps(message)
             self.connect_mqtt_client()
             self.mqtt_client.publish(self.topic, messageJson, 1)
