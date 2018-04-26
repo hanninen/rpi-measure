@@ -59,7 +59,8 @@ class RPiMeasure(Sensor):
             # Init AWSIoTMQTTClient
             self.mqtt_client = AWSIoTMQTTClient(self.clientId)
             self.mqtt_client.configureEndpoint(self.host, 8883)
-            self.mqtt_client.configureCredentials(self.rootCAPath, self.privateKeyPath, self.certificatePath)
+            self.mqtt_client.configureCredentials(
+                self.rootCAPath, self.privateKeyPath, self.certificatePath)
 
             # AWSIoTMQTTClient connection configuration
             self.mqtt_client.configureAutoReconnectBackoffTime(1, 32, 20)
@@ -72,13 +73,16 @@ class RPiMeasure(Sensor):
 
         def connect_mqtt_client(self):
             # Connect and subscribe to AWS IoT
-            self.logger.debug('Connecting to %s/%s MQTT queue' % (self.host, self.topic))
+            self.logger.debug(
+                'Connecting to %s/%s MQTT queue' % (self.host, self.topic))
             self.mqtt_client.connect()
             self.logger.debug('Connected')
             time.sleep(2)
 
         def disconnect_mqtt_client(self):
-            self.logger.debug('Disconnecting from %s/%s MQTT queue' % (self.host, self.topic))
+            self.logger.debug(
+                'Disconnecting from %s/%s MQTT queue'
+                % (self.host, self.topic))
             self.mqtt_client.disconnect()
             self.logger.debug('Disconnected')
 
@@ -110,8 +114,12 @@ class RPiMeasure(Sensor):
             message['device_id'] = self.clientId
             message['temperature'] = temperature
             message['humidity'] = humidity
+            # expire parameter for DynamoDB TTL
+            message['expire'] = int(time.mktime(
+                datetime.datetime.utcnow().timetuple()))
             messageJson = json.dumps(message)
             self.connect_mqtt_client()
             self.mqtt_client.publish(self.topic, messageJson, 1)
-            self.logger.debug('Published topic %s: %s\n' % (self.topic, messageJson))
+            self.logger.debug(
+                'Published topic %s: %s\n' % (self.topic, messageJson))
             self.disconnect_mqtt_client()
