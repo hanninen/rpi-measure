@@ -36,6 +36,10 @@ class RPiMeasure(Sensor):
             self.logger.propagate = False
             self.configure()
             self.create_mqtt_client()
+            self.connect_mqtt_client()
+
+        def __del__(self):
+            self.disconnect_mqtt_client()
 
         def configure(self):
             config = ConfigParser.ConfigParser()
@@ -119,8 +123,6 @@ class RPiMeasure(Sensor):
             expire = datetime.utcnow() + timedelta(31)
             message['expire'] = int(time.mktime(expire.timetuple()))
             messageJson = json.dumps(message)
-            self.connect_mqtt_client()
             self.mqtt_client.publish(self.topic, messageJson, 1)
             self.logger.debug(
                 'Published topic %s: %s\n' % (self.topic, messageJson))
-            self.disconnect_mqtt_client()
