@@ -9,6 +9,7 @@ User=root
 WorkingDirectory=/
 ExecStart=/usr/local/bin/rpi-measure
 Restart=on-failure
+RestartSec=300
 
 [Install]
 WantedBy=multi-user.target
