@@ -1,0 +1,125 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+Description: >
+    rpi-measure
+
+    SAM Template for rpi-measure
+    
+# More info about Globals: https://github.com/awslabs/serverless-application-model/blob/master/docs/globals.rst
+Globals:
+    Function:
+        Timeout: 30
+        Handler: app.lambda_handler
+        Runtime: python3.6
+        Tracing: Active
+Resources:
+
+    MonitorTopic:
+        Type: AWS::SNS::Topic
+        Properties:
+            Subscription: 
+                - Endpoint: '+358400184758'
+                  Protocol: sms
+
+    AlexaFunction:
+        Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+        Properties:
+            CodeUri: alexa/build/
+            Policies:
+                - DynamoDBReadPolicy:
+                    TableName: indoor
+            Events:
+                AlexaEvent:
+                    Type: AlexaSkill
+
+    MonitorFunction:
+        Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+        Properties:
+            CodeUri: monitor/build/
+            Policies:
+                - DynamoDBReadPolicy:
+                    TableName: indoor
+                - SNSPublishMessagePolicy:
+                    TopicName: !Ref MonitorTopic
+            Events:
+                Hourly:
+                    Type: Schedule
+                    Properties:
+                        Schedule: rate(1 hour)
+            Environment:
+                Variables:
+                    SNS_TOPIC: !Ref MonitorTopic
+    
+    VsureFunction:
+        Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+        Properties:
+            CodeUri: vsure/build/
+            Policies:
+                - DynamoDBReadPolicy:
+                    TableName: indoor
+                - Version: "2012-10-17"
+                  Statement:
+                  - Effect: "Allow"
+                    Action: "ssm:GetParameter"
+                    Resource: 
+                        - "arn:aws:ssm:eu-west-1:435775406265:parameter/lambda/vsure/login"
+                        - "arn:aws:ssm:eu-west-1:435775406265:parameter/lambda/vsure/password"
+                  - Effect: "Allow"
+                    Action: "kms:Decrypt"
+                    Resource: "arn:aws:kms:eu-west-1:435775406265:key/7969b24c-ad2c-4fe7-ac3a-6a14aef0f963"
+                  - Effect: "Allow"
+                    Action: 
+                        - "iot:Connect"
+                        - "iot:Publish"
+                    Resource: "*"
+            Events:
+                Every15Mins:
+                    Type: Schedule
+                    Properties:
+                        Schedule: rate(15 minutes)
+                        Input: '{"devices":{"vsure-1":"2B65 8SSU","vsure-2":"2B65 8SAS"}}'
+
+    AveragesFunction:
+        Type: AWS::Serverless::Function # More info about Function Resource: https://github.com/awslabs/serverless-application-model/blob/master/versions/2016-10-31.md#awsserverlessfunction
+        Properties:
+            CodeUri: averages/build/
+            Policies:
+                - DynamoDBCrudPolicy:
+                    TableName: indoor
+            Events:
+                Hourly:
+                    Type: Schedule
+                    Properties:
+                        Schedule: rate(1 hour)
+                        Input: '{"timeValue": 1, "timeFormat": "hours", "device_ids": ["pi-1", "vsure-1", "vsure-2"]}'
+                Daily:
+                    Type: Schedule
+                    Properties:
+                        Schedule: rate(1 day)
+                        Input: '{"timeValue": 1, "timeFormat": "days", "device_ids": ["pi-1", "vsure-1", "vsure-2"]}'
+                Weekly:
+                    Type: Schedule
+                    Properties:
+                        Schedule: rate(7 days)
+                        Input: '{"timeValue": 1, "timeFormat": "weeks", "device_ids": ["pi-1", "vsure-1", "vsure-2"]}'
+                Monthly:
+                    Type: Schedule
+                    Properties:
+                        Schedule: rate(28 days)
+                        Input: '{"timeValue": 4, "timeFormat": "weeks", "device_ids": ["pi-1", "vsure-1", "vsure-2"]}'
+                        
+
+
+Outputs:
+
+    AlexaFunction:
+      Description: "Alexa skill for rpi-measure"
+      Value: !GetAtt AlexaFunction.Arn
+
+    AlexaFunctionIamRole:
+      Description: "Implicit IAM Role created for Hello World function"
+      Value: !GetAtt AlexaFunctionRole.Arn
+
+    AveragesFunction:
+      Description: "Count average values for rpi-measure"
+      Value: !GetAtt AveragesFunction.Arn

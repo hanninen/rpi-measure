@@ -1,0 +1,3 @@
+AWSIoTPythonSDK
+vsure
+boto3

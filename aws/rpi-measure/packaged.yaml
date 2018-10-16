@@ -1,0 +1,128 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'rpi-measure
+
+  SAM Template for rpi-measure
+
+  '
+Globals:
+  Function:
+    Handler: app.lambda_handler
+    Runtime: python3.6
+    Timeout: 30
+    Tracing: Active
+Outputs:
+  AlexaFunction:
+    Description: Alexa skill for rpi-measure
+    Value:
+      Fn::GetAtt:
+      - AlexaFunction
+      - Arn
+  AlexaFunctionIamRole:
+    Description: Implicit IAM Role created for Hello World function
+    Value:
+      Fn::GetAtt:
+      - AlexaFunctionRole
+      - Arn
+  AveragesFunction:
+    Description: Count average values for rpi-measure
+    Value:
+      Fn::GetAtt:
+      - AveragesFunction
+      - Arn
+Resources:
+  AlexaFunction:
+    Properties:
+      CodeUri: s3://hanninen-sam-deploy/383880db2894d45bf5eb00f3be34ed64
+      Events:
+        AlexaEvent:
+          Type: AlexaSkill
+      Policies:
+      - DynamoDBReadPolicy:
+          TableName: indoor
+    Type: AWS::Serverless::Function
+  AveragesFunction:
+    Properties:
+      CodeUri: s3://hanninen-sam-deploy/fae8893fce4cf14d058b95f724ce44a6
+      Events:
+        Daily:
+          Properties:
+            Input: '{"timeValue": 1, "timeFormat": "days", "device_ids": ["pi-1",
+              "vsure-1", "vsure-2"]}'
+            Schedule: rate(1 day)
+          Type: Schedule
+        Hourly:
+          Properties:
+            Input: '{"timeValue": 1, "timeFormat": "hours", "device_ids": ["pi-1",
+              "vsure-1", "vsure-2"]}'
+            Schedule: rate(1 hour)
+          Type: Schedule
+        Monthly:
+          Properties:
+            Input: '{"timeValue": 4, "timeFormat": "weeks", "device_ids": ["pi-1",
+              "vsure-1", "vsure-2"]}'
+            Schedule: rate(28 days)
+          Type: Schedule
+        Weekly:
+          Properties:
+            Input: '{"timeValue": 1, "timeFormat": "weeks", "device_ids": ["pi-1",
+              "vsure-1", "vsure-2"]}'
+            Schedule: rate(7 days)
+          Type: Schedule
+      Policies:
+      - DynamoDBCrudPolicy:
+          TableName: indoor
+    Type: AWS::Serverless::Function
+  MonitorFunction:
+    Properties:
+      CodeUri: s3://hanninen-sam-deploy/8f07f6d7b12f59c75a27dd7978d048d2
+      Environment:
+        Variables:
+          SNS_TOPIC:
+            Ref: MonitorTopic
+      Events:
+        Hourly:
+          Properties:
+            Schedule: rate(1 hour)
+          Type: Schedule
+      Policies:
+      - DynamoDBReadPolicy:
+          TableName: indoor
+      - SNSPublishMessagePolicy:
+          TopicName:
+            Ref: MonitorTopic
+    Type: AWS::Serverless::Function
+  MonitorTopic:
+    Properties:
+      Subscription:
+      - Endpoint: '+358400184758'
+        Protocol: sms
+    Type: AWS::SNS::Topic
+  VsureFunction:
+    Properties:
+      CodeUri: s3://hanninen-sam-deploy/caf0b379b52935dab9054d5387f6e80b
+      Events:
+        Every15Mins:
+          Properties:
+            Input: '{"devices":{"vsure-1":"2B65 8SSU","vsure-2":"2B65 8SAS"}}'
+            Schedule: rate(15 minutes)
+          Type: Schedule
+      Policies:
+      - DynamoDBReadPolicy:
+          TableName: indoor
+      - Statement:
+        - Action: ssm:GetParameter
+          Effect: Allow
+          Resource:
+          - arn:aws:ssm:eu-west-1:435775406265:parameter/lambda/vsure/login
+          - arn:aws:ssm:eu-west-1:435775406265:parameter/lambda/vsure/password
+        - Action: kms:Decrypt
+          Effect: Allow
+          Resource: arn:aws:kms:eu-west-1:435775406265:key/7969b24c-ad2c-4fe7-ac3a-6a14aef0f963
+        - Action:
+          - iot:Connect
+          - iot:Publish
+          Effect: Allow
+          Resource: '*'
+        Version: '2012-10-17'
+    Type: AWS::Serverless::Function
+Transform: AWS::Serverless-2016-10-31
