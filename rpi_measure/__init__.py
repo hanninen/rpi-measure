@@ -39,7 +39,8 @@ class RPiMeasure(Sensor):
             self.connect_mqtt_client()
 
         def __del__(self):
-            self.disconnect_mqtt_client()
+            if self.mqtt_client:
+                self.disconnect_mqtt_client()
 
         def configure(self):
             config = ConfigParser.ConfigParser()
