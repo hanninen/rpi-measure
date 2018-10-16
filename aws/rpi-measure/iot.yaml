@@ -1,0 +1,107 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: A sample template
+Resources:
+  # IoT Things
+  Pi1:
+    Type: AWS::IoT::Thing
+    Properties:
+      ThingName: "iot-pi-1"
+  Vsure1:
+    Type: AWS::IoT::Thing
+    Properties:
+      ThingName: "iot-vsure-1"
+  Vsure2:
+    Type: AWS::IoT::Thing
+    Properties:
+      ThingName: "iot-vsure-2"
+
+  # IoT policies and certs
+  RpiPolicy:
+    Type: AWS::IoT::Policy
+    Properties:
+      PolicyDocument: 
+        Version: "2012-10-17"
+        Statement:
+          - 
+            Effect: "Allow"
+            Action: "iot:*"
+            Resource: "*"
+  RpiCert:
+    Type: AWS::IoT::Certificate
+    Properties:
+      CertificateSigningRequest: |
+        -----BEGIN CERTIFICATE REQUEST-----
+        MIIC0jCCAboCAQAwgYwxCzAJBgNVBAYTAkZJMRAwDgYDVQQIDAdVdXNpbWFhMQ4w
+        DAYDVQQHDAVFc3BvbzEVMBMGA1UECgwMaGFubmluZW4ubmV0MQwwCgYDVQQLDANJ
+        b1QxFTATBgNVBAMMDGhhbm5pbmVuLm5ldDEfMB0GCSqGSIb3DQEJARYQYWtpQGhh
+        bm5pbmVuLm5ldDCCASIwDQYJKoZIhvcNAQEBBQADggEPADCCAQoCggEBAONHUmOA
+        8KzacTKt4d3anFCnzmSMOwSmKz+egL1myoIwAWTC12hAl5DKA+7TQIUe5xTTumja
+        bpP0B4Gcn1Oij+NRGn012agdPgR004fucDgxHrwusNk5FLUb9zKd5Rh9fH1ObnaH
+        6xE2lKT9qzBC0Li8c1GsvtIey6+2bUcH9OmexqxpGFMDMCz4oKTdSWo/Nbg5baiH
+        48p4QeuA2VBfexglsO9RzduEgkOPpU+FiS25o5v0uw9/JPk0XOIvn7Q6TM1qknmH
+        e2ywbzwyUmqc/RzPVtFJepYkFfTJio8sNGieHc5BWK7u7rP9tHKlXouiVz/24kiX
+        tLX1w8ZLw/lNKUUCAwEAAaAAMA0GCSqGSIb3DQEBCwUAA4IBAQCjhikstbu5IhzR
+        07OTfaizftuXjE2+C+OxW05zHH4e8rnUvXID8tYLQaaKKgVCeI05sl2z125+R3+h
+        ALQJ1trtHLf4GACV5R0BvFqk4Ei6j5wpybD/uWnpbREm9PjBP8hX/ou3t/UkEW7Q
+        oZIGJzpkzCcmgQlR072VLDJNEifj6mMbtlsvJSOzV3YQEr5NH928Ri0qIlG7s6WC
+        Z1Ty3gYwXAz1z0WMGsadNbZPSjT5aAxKjG6roGzvTyoTYUj8AB+oetp7xa76W7so
+        J3qq9YW/tfN8OFFwz4ntOT03foRzeKpr5L0Xod+GsV3mkxpQHM7c0eQL6GXduRG2
+        EC0MhJp8
+        -----END CERTIFICATE REQUEST-----
+      Status: ACTIVE
+  RpiPolicyAttachment:
+    Type: AWS::IoT::PolicyPrincipalAttachment
+    Properties:
+      PolicyName: !Ref RpiPolicy
+      Principal: !GetAtt RpiCert.Arn
+  RpiThingAttachment:
+    Type: AWS::IoT::ThingPrincipalAttachment
+    Properties:
+      Principal: !GetAtt RpiCert.Arn
+      ThingName: !Ref Pi1
+  
+  # AWS IoT Rules
+  MeasuresRuleRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - 
+            Effect: "Allow"
+            Principal:
+              Service: "iot.amazonaws.com"
+            Action: "sts:AssumeRole"
+      Path: "/service-role/"
+      Policies:
+        - PolicyDocument: 
+            Version: "2012-10-17"
+            Statement: 
+              - 
+                Effect: "Allow"
+                Action: "s3:PutObject"
+                Resource: "arn:aws:s3:::hanninen-iot-measurements/measures/*"
+          PolicyName: "measures-s3"
+        - PolicyDocument: 
+            Version: "2012-10-17"
+            Statement:
+              - 
+                Effect: "Allow"
+                Action: "dynamodb:PutItem"
+                Resource: "arn:aws:dynamodb:eu-west-1:435775406265:table/indoor"
+          PolicyName: "measures-dynamodb"
+  MeasuresRule:
+    Type: AWS::IoT::TopicRule
+    Properties:
+      TopicRulePayload: 
+        Actions:
+          - DynamoDBv2:
+              PutItem:
+                TableName: indoor
+              RoleArn: !GetAtt MeasuresRuleRole.Arn
+          - S3:
+              BucketName: hanninen-iot-measurements
+              Key: "${topic()}/${timestamp()}"
+              RoleArn: !GetAtt MeasuresRuleRole.Arn
+        RuleDisabled: False
+        Sql: "SELECT * FROM 'measures/#'"
