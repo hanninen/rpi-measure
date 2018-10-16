@@ -32,7 +32,7 @@ Outputs:
 Resources:
   AlexaFunction:
     Properties:
-      CodeUri: s3://hanninen-sam-deploy/383880db2894d45bf5eb00f3be34ed64
+      CodeUri: s3://hanninen-sam-deploy/9de8957d1b4ef81c5041bfe801777ec7
       Events:
         AlexaEvent:
           Type: AlexaSkill
@@ -74,7 +74,7 @@ Resources:
     Type: AWS::Serverless::Function
   MonitorFunction:
     Properties:
-      CodeUri: s3://hanninen-sam-deploy/8f07f6d7b12f59c75a27dd7978d048d2
+      CodeUri: s3://hanninen-sam-deploy/0d8a4fbbceb9ca618c97e3673e107b36
       Environment:
         Variables:
           SNS_TOPIC:
@@ -89,7 +89,9 @@ Resources:
           TableName: indoor
       - SNSPublishMessagePolicy:
           TopicName:
-            Ref: MonitorTopic
+            Fn::GetAtt:
+            - MonitorTopic
+            - TopicName
     Type: AWS::Serverless::Function
   MonitorTopic:
     Properties:
@@ -99,7 +101,7 @@ Resources:
     Type: AWS::SNS::Topic
   VsureFunction:
     Properties:
-      CodeUri: s3://hanninen-sam-deploy/caf0b379b52935dab9054d5387f6e80b
+      CodeUri: s3://hanninen-sam-deploy/7eb00963022a27e78d7d7359388fb28b
       Events:
         Every15Mins:
           Properties:

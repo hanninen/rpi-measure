@@ -1,13 +1,17 @@
 """
-This Alexa skill retrieves the latest measured temperature or humidity stored
-in a DynamoDB table.
+This sample demonstrates a simple skill built with the Amazon Alexa Skills Kit.
+The Intent Schema, Custom Slots, and Sample Utterances for this skill, as well
+as testing instructions are located at http://amzn.to/1LzFrj6
+
+For additional samples, visit the Alexa Skills Kit Getting Started guide at
+http://amzn.to/1LGWsLG
 """
 from __future__ import print_function
 
 import boto3
 from datetime import datetime, timedelta
 
-# ------------- Helpers that build all of the responses --------------------
+# --------------- Helpers that build all of the responses ----------------------
 
 def build_speechlet_response(title, output, reprompt_text, should_end_session):
     return {
@@ -40,23 +44,21 @@ def build_response(session_attributes, speechlet_response):
 def get_value(attributeName, window="latest"):
     client = boto3.client('dynamodb')
     time1 = str(datetime.utcnow())
-    time2 = str(datetime.strptime(time1, '%Y-%m-%d %H:%M:%S.%f')
-                - timedelta(minutes=30))
-
-    # Get latest value max 30 minutes ago
+    time2 = str(datetime.strptime(time1, '%Y-%m-%d %H:%M:%S.%f') - timedelta(minutes=30))
     response = client.query(
-        TableName='indoor',
-        ProjectionExpression=attributeName,
-        Limit=1,
-        KeyConditionExpression="device_id = :id AND #time BETWEEN :t1 AND :t2",
+        TableName='indoor', 
+        ProjectionExpression=attributeName, 
+        Limit=1, 
+        KeyConditionExpression="device_id = :device AND #time BETWEEN :time2 AND :time1", 
         ExpressionAttributeValues={
-            ':t1': {'S': time1},
-            ':t2': {'S': time2},
-            ':id': {'S': 'pi-1'}
-        },
-        ExpressionAttributeNames={'#time': 'msg_timestamp'},
+            ':time1': {'S': time1}, 
+            ':time2': {'S': time2}, 
+            ':device': {'S': 'pi-1'}
+        }, 
+        ExpressionAttributeNames={'#time': 'msg_timestamp'}, 
         ScanIndexForward=False
     )
+    print(response)
     try:
         value = response['Items'][0][attributeName]['N']
     except IndexError:
@@ -64,8 +66,7 @@ def get_value(attributeName, window="latest"):
 
     return value
 
-# ------------- Functions that control the skill's behavior ----------------
-
+# --------------- Functions that control the skill's behavior ------------------
 
 def get_welcome_response():
     """ If we wanted to initialize the session to have some attributes we could
@@ -75,13 +76,11 @@ def get_welcome_response():
     session_attributes = {}
     card_title = "Welcome"
     speech_output = "Welcome to the Home temperature and humidity skill. " \
-                    "You can ask for the latest temperature and , " \
-                    "humidity."
-    # If the user either does not reply to the welcome message or says
-    # something that is not understood, they will be prompted again
-    # with this text.
+                    "You can ask for the latest temperature and humidity."
+    # If the user either does not reply to the welcome message or says something
+    # that is not understood, they will be prompted again with this text.
     reprompt_text = "Please ask for the latest temperature or humidity by " \
-                    "saying What is the latest temperature or ." \
+                    "saying What is the latest temperature or " \
                     "What is the latest humidity."
     should_end_session = False
     return build_response(session_attributes, build_speechlet_response(
@@ -110,12 +109,12 @@ def get_temperature(intent, session):
         speech_output = "Sorry, could not find any temperature values " \
                         "recorded in last 30 minutes."
     else:
-        speech_output = "The latest temperature is {} degrees".format(temperature)
+        speech_output = "The latest temperature is {0:0.1f} degrees".format(float(temperature))
 
     return build_response(session_attributes,
                           build_speechlet_response(card_title, speech_output,
                                                    None, should_end_session))
-
+    
 def get_humidity(intent, session):
     """ Returns the latest humidity to the user
     """
@@ -126,12 +125,12 @@ def get_humidity(intent, session):
     print(intent)
 
     humidity = get_value('humidity')
-    if humidity is None:
+    if humidity == None:
         speech_output = "Sorry, could not find any humidity values recorded " \
                         "in last 30 minutes."
     else:
-        speech_output = "The latest humidity is {} percent".format(humidity)
-
+        speech_output = "The latest humidity is {0:0.1f} percent".format(float(humidity))
+    
     return build_response(session_attributes,
                           build_speechlet_response(card_title, speech_output,
                                                    None, should_end_session))
@@ -199,9 +198,9 @@ def lambda_handler(event, context):
           event['session']['application']['applicationId'])
 
     """
-    Uncomment this if statement and populate with your skill's application ID
-    to prevent someone else from configuring a skill that sends requests to
-    this function.
+    Uncomment this if statement and populate with your skill's application ID to
+    prevent someone else from configuring a skill that sends requests to this
+    function.
     """
     # if (event['session']['application']['applicationId'] !=
     #         "amzn1.echo-sdk-ams.app.[unique-value-here]"):

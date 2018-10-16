@@ -1,3 +1,4 @@
+import os
 import boto3
 from datetime import datetime, timedelta
 
@@ -31,10 +32,9 @@ def get_value(attributeName, device_id, minutes=30):
 def send_notification(temperature, humidity, device):
     client = boto3.client('sns')
     response = client.publish(
-        PhoneNumber='+358400184758', 
+        TopicArn=os.environ['SNS_TOPIC'],
         Message="[rpi-measure] Could not read data from {}".format(device)
         )
-    print(response)
     
 #    client = boto3.client('ses')
 #    now = datetime.now().strftime('%Y-%m-%d %H:%M:%S')
@@ -61,8 +61,8 @@ def send_notification(temperature, humidity, device):
     
 def lambda_handler(event, context):
     for device in ['pi-1', 'vsure-1', 'vsure-2']:
-        temperature = get_value('temperature', device, minutes=60)
-        humidity = get_value('humidity', device, minutes=60)
+        temperature = get_value('temperature', device, minutes=75)
+        humidity = get_value('humidity', device, minutes=75)
     
         if temperature == None or humidity == None:
             send_notification(temperature, humidity, device)

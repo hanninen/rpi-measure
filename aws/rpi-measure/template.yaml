@@ -40,7 +40,7 @@ Resources:
                 - DynamoDBReadPolicy:
                     TableName: indoor
                 - SNSPublishMessagePolicy:
-                    TopicName: !Ref MonitorTopic
+                    TopicName: !GetAtt MonitorTopic.TopicName
             Events:
                 Hourly:
                     Type: Schedule
